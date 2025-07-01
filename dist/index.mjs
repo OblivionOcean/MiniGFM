@@ -24,23 +24,24 @@ export class MiniGFM {
      * @private
      */
     patterns = {
-        codeBlock: /(?:^|\n)```([\s\S]*?)\n([\s\S]*?)\n```/g,
+        codeBlock: /(?:^|\n)(`{3,4})([A-Za-z0-9]*?)\n([\s\S]*?)\n\1/g,///(?:^|\n)```([A-z0-9]*?)\n([\s\S]*?)\n```/g,
         inlineCode: /`([^`]+)`/g,
-        bold: /\*\*(.+?)\*\*/g,
+        bold: /[\*\_]{2}(.+?)[\*\_]{2}/g,
         italic: /(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/g,
         strike: /~~(.+?)~~/g,
         heading: /^[^\\]\s*(#{1,6}) (.+)$/gm,
-        unorderedList: /^([ ]{0,3})[-*+] ([^-\_\*]+)$/gm,
-        orderedList: /^([ ]{0,3})\d+\. ([^-\_\*])$/gm,
-        taskList: /^([ ]{0,3})[-*+] \[([ xX]?)\]\s([^-\_\*]+)$/gm,
-        blockquote: /^> (.+)$/gm,
+        unorderedList: /^[ \t]*[-\*\+] ([^-\_\*]+)$/gm,
+        orderedList: /^[ \t]*(\d+)\. ([^-\_\*]+)$/gm,
+        taskList: /^[ \t]*[-\*\+] \[([ xX]?)\]\s([^-\_\*]+)$/gm,
+        blockquote: /^((?:\&gt\; ?)+)( *.*)$/gm,
         table: /^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm,
-        link: /\[([^\]]+)\]\(([^\)]+)\)/g,
-        image: /!\[([^\]]+)\]\(([^\)]+)\)/g,
+        link: /\[([^\]]+)\]\(([^\) ]+)[ ]?(\&quot\;[^\)\"]+\&quot\;)?\)/g,
+        image: /\!\[([^\]]*)\]\(([^\)]+)\)/g,
         autoLink: /<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g,
         autoEmail: /<([^\s@]+@[^\s@]+\.[^\s@]+)>/g,
         hr: /^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm,
         escape: /\\([\\`*_{}[\]()#+\-.!])/g,
+        note: /\%\%(\n| )[^%]+(\n| )\%\%/gm,
         paragraphSplit: /\\\n|\n{2,}/g,
     };
 
@@ -78,10 +79,18 @@ export class MiniGFM {
 
         // 保存原始代码块
         const codeBlocks = [];
-        markdown = markdown.replace(this.patterns.codeBlock, (match, lang, code) => {
+        const codeInline = [];
+        markdown = markdown.replace(this.patterns.codeBlock, (match, _, lang, code) => {
             codeBlocks.push({ lang: lang, code: code.trim() });
             return `<!----CODEBLOCK${codeBlocks.length - 1}---->`;
         });
+        markdown = markdown.replace(this.patterns.inlineCode, (match, code) => {
+            codeInline.push(code);
+            return `<!----CODEINLINE${codeInline.length - 1}---->`;
+        });
+
+        // 删除注释
+        markdown = markdown.replace(this.patterns.note, '');
 
         // 解析块级元素
         markdown = this.parseBlocks(markdown);
@@ -89,10 +98,17 @@ export class MiniGFM {
         // 解析行内元素
         markdown = this.parseInlines(markdown);
 
+        // 恢复代码行级元素
+        markdown = markdown.replace(/<!----CODEINLINE(\d+)---->/g, (match, id) => {
+            if (!codeInline[parseInt(id)]) return '';
+            return `<code>${codeInline[parseInt(id)]}</code>`;
+        });
+
         // 恢复代码块
         markdown = markdown.replace(/<!----CODEBLOCK(\d+)---->/g, (match, id) => {
             if (!codeBlocks[parseInt(id)]) return '';
             let codeBlock = codeBlocks[parseInt(id)]
+            codeBlock.lang = codeBlock.lang.trim();
             if (codeBlock.lang) {
                 if (this.options.hljs) {
                     codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
@@ -138,21 +154,22 @@ export class MiniGFM {
         });
 
         // 无序列表
-        text = text.replace(this.patterns.unorderedList, (match, indent, content) => {
-            return `${indent}<li>${content}</li>`;
+        text = text.replace(this.patterns.unorderedList, (match, content) => {
+            return `<li>${content}</li>`;
         });
 
         // 有序列表
         text = text.replace(this.patterns.orderedList, (match, indent, content) => {
-            return `${indent}<li>${content}</li>`;
+            return `<li>${indent}. ${content}</li>`;
         });
 
         // 分隔线
         text = text.replace(this.patterns.hr, () => '<hr>');
 
         // 引用块
-        text = text.replace(this.patterns.blockquote, (match, content) => {
-            return `<blockquote>${content}</blockquote>`;
+        text = text.replace(this.patterns.blockquote, (match, sep, content) => {
+            let num = sep.replaceAll("&gt;", ">").length;
+            return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
         });
 
         // 表格
@@ -208,7 +225,7 @@ export class MiniGFM {
         html += '<thead><tr>';
         headerColumns.forEach((header, i) => {
             const align = alignments[i] ? ` align="${alignments[i]}"` : '';
-            html += `<th${align}>${this.escapeHTML(header)}</th>`;
+            html += `<th${align}>${header}</th>`;
         });
         html += '</tr></thead>';
 
@@ -219,7 +236,7 @@ export class MiniGFM {
                 html += '<tr>';
                 row.forEach((cell, j) => {
                     const align = alignments[j] ? ` align="${alignments[j]}"` : '';
-                    html += `<td${align}>${this.escapeHTML(cell)}</td>`;
+                    html += `<td${align}>${cell}</td>`;
                 });
                 html += '</tr>';
             });
@@ -267,13 +284,9 @@ export class MiniGFM {
      * @static
      */
     parseInlines(text) {
-        // 行内代码
-        text = text.replace(this.patterns.inlineCode, '<code>$1</code>');
-
         // 粗体
         text = text.replace(this.patterns.bold, '<strong>$1</strong>');
 
-        // 斜体
         text = text.replace(this.patterns.italic, (match, g1, g2) =>
             `<em>${g1 || g2}</em>`
         );
@@ -285,11 +298,11 @@ export class MiniGFM {
         text = text.replace(this.patterns.autoLink, '<a href="$1">$1</a>');
         text = text.replace(this.patterns.autoEmail, '<a href="mailto:$1">$1</a>');
 
-        // 链接
-        text = text.replace(this.patterns.link, '<a href="$2">$1</a>');
-
         // 图片
         text = text.replace(this.patterns.image, '<img src="$2" alt="$1"></img>');
+
+        // 链接
+        text = text.replace(this.patterns.link, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title.replaceAll("&quot;", "\"") : ""}>${desc}</a>`);
 
         return text;
     }
