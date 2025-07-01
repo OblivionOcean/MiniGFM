@@ -72,7 +72,7 @@ class MiniGFM {
         // 转义特殊字符
         markdown = this.escape(markdown);
 
-        if (this.options.unsafe) {
+        if (!this.options.unsafe) {
             markdown = this.escapeHTML(markdown);
         }
 
@@ -304,4 +304,7 @@ class MiniGFM {
     }
 }
 
-module.exports = { MiniGFM: MiniGFM };
+
+if (typeof exports === "object") {
+    module.exports = { MiniGFM: MiniGFM };
+}
