@@ -47,7 +47,7 @@ console.log(md.parse('# Hello World')); // <h1>Hello World</h1>
 
 | 属性 | 类型 | 描述 |
 | --- | --- | --- |
-| options.unsafe | boolean | 不转移HTML标签 |
+| options.unsafe | boolean | 不转译HTML标签 |
 | options.hljs | object | 高亮代码块, 传入hljs对象 |
 
 ```js
