@@ -4,7 +4,7 @@
 
 ## 特性
 
-- 极小的，仅 3KB 左右，0 依赖
+- 极小的，仅 3KB 左右（Brotli 压缩大约1.5KB），0 依赖
 - 兼容 GFM （GitHub Flavored Markdown）
 - XSS 安全
 
