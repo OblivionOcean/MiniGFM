@@ -1,6 +1,6 @@
 {
   "name": "@oblivionocean/minigfm",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Minimal JavaScript Markdown renderer with near-GFM compatibility.",
   "keywords": [
     "MarkDown",
@@ -31,7 +31,7 @@
     "uglify-js": "^3.19.3"
   },
   "scripts": {
-    "build": "uglifyjs src/index.cjs --source-map -c -m --timings --mangle-props builtins,reserved=[MiniGFM,parse,hljs] -o dist/index.min.js && cp src/index.cjs dist/index.cjs && cp src/index.mjs dist/index.mjs",
+    "build": "uglifyjs src/index.cjs --source-map -c -m --timings --mangle-props reserved=[MiniGFM,parse,hljs],keep_quoted -o dist/index.min.js && cp src/index.cjs dist/index.cjs && cp src/index.mjs dist/index.mjs",
     "publish": "npm run build && npm publish"
   }
 }
