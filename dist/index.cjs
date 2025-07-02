@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 0.0.6
+ * @version 0.0.7
  * @class
  */
 class MiniGFM {
@@ -256,7 +256,7 @@ class MiniGFM {
 
         // 自动链接
         text = text.replace(/<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g, '<a href="$1">$1</a>');
-        text = text.replace(this.patterns.autoEmail, '<a href="mailto:$1">$1</a>');
+        text = text.replace(/<([^\s@]+@[^\s@]+\.[^\s@]+)>/g, '<a href="mailto:$1">$1</a>');
 
         // 图片
         text = text.replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1"></img>');
