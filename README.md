@@ -4,9 +4,9 @@ Minimal JavaScript Markdown renderer with near-GFM compatibility.
 
 ## Features  
 
-- **Extremely small** - Only about 3KB (Brotli compress about 1.5KB), zero dependencies  
-- **GFM compatible** (GitHub Flavored Markdown)  
-- **XSS-safe**  
+- **Extremely small** - With a size barely 3KB (A Brotli compression would be 1.5KB) and zero dependencies  
+- **GFM compatible** (GitHub Flavored Markdown)
+- **XSS-safe**
 
 ## Quick Start  
 
