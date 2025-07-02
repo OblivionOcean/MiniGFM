@@ -1,0 +1,6 @@
+src/
+.vscode/
+.gitignore
+.git/
+node_modules/
+.idea/
