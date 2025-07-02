@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 0.0.1
+ * @version 0.0.6
  * @class
  */
 export class MiniGFM {

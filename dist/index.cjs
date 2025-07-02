@@ -1,50 +1,10 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 0.0.1
+ * @version 0.0.6
  * @class
  */
 class MiniGFM {
-    /**
-     * Markdown语法正则表达式
-     * @static
-     * @type {Object}
-     * @property {RegExp} code 代码块
-     * @property {RegExp} link 链接
-     * @property {RegExp} image 图片
-     * @property {RegExp} bold 粗体
-     * @property {RegExp} italic 斜体
-     * @property {RegExp} strikethrough 删除线
-     * @property {RegExp} quote 引用
-     * @property {RegExp} list 列表
-     * @property {RegExp} heading 标题
-     * @property {RegExp} code 代码
-     * @property {RegExp} codeblock 代码块
-     * @static
-     * @private
-     */
-    patterns = {
-        codeBlock: /(?:^|\n)(`{3,4})([A-Za-z0-9]*?)\n([\s\S]*?)\n\1/g,///(?:^|\n)```([A-z0-9]*?)\n([\s\S]*?)\n```/g,
-        inlineCode: /`([^`]+)`/g,
-        bold: /[\*\_]{2}(.+?)[\*\_]{2}/g,
-        italic: /(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/g,
-        strike: /~~(.+?)~~/g,
-        heading: /^[^\\]\s*(#{1,6}) (.+)$/gm,
-        unorderedList: /^[ \t]*[-\*\+] ([^-\_\*]+)$/gm,
-        orderedList: /^[ \t]*(\d+)\. ([^-\_\*]+)$/gm,
-        taskList: /^[ \t]*[-\*\+] \[([ xX]?)\]\s([^-\_\*]+)$/gm,
-        blockquote: /^((?:\&gt\; ?)+)( *.*)$/gm,
-        table: /^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm,
-        link: /\[([^\]]+)\]\(([^\) ]+)[ ]?(\&quot\;[^\)\"]+\&quot\;)?\)/g,
-        image: /\!\[([^\]]*)\]\(([^\)]+)\)/g,
-        autoLink: /<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g,
-        autoEmail: /<([^\s@]+@[^\s@]+\.[^\s@]+)>/g,
-        hr: /^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm,
-        escape: /\\([\\`*_{}[\]()#+\-.!])/g,
-        note: /\%\%(\n| )[^%]+(\n| )\%\%/gm,
-        paragraphSplit: /\\\n|\n{2,}/g,
-    };
-
     /**
      * @property {Map} escapeMap
      * @description html 转义字符
@@ -80,17 +40,17 @@ class MiniGFM {
         // 保存原始代码块
         const codeBlocks = [];
         const codeInline = [];
-        markdown = markdown.replace(this.patterns.codeBlock, (match, _, lang, code) => {
+        markdown = markdown.replace(/(?:^|\n)(`{3,4})([A-Za-z0-9]*?)\n([\s\S]*?)\n\1/g, (match, _, lang, code) => {
             codeBlocks.push({ lang: lang, code: code.trim() });
             return `<!----CODEBLOCK${codeBlocks.length - 1}---->`;
         });
-        markdown = markdown.replace(this.patterns.inlineCode, (match, code) => {
+        markdown = markdown.replace(/`([^`]+)`/g, (match, code) => {
             codeInline.push(code);
             return `<!----CODEINLINE${codeInline.length - 1}---->`;
         });
 
         // 删除注释
-        markdown = markdown.replace(this.patterns.note, '');
+        markdown = markdown.replace(/\%\%(\n| )[^%]+(\n| )\%\%/gm, '');
 
         // 解析块级元素
         markdown = this.parseBlocks(markdown);
@@ -131,7 +91,7 @@ class MiniGFM {
      * @returns {string} 转义后的文本
      */
     escape(text) {
-        return text.replace(this.patterns.escape, '$1');
+        return text.replace(/\\([\\`*_{}[\]()#+\-.!])/g, '$1');
     }
 
     /**
@@ -143,42 +103,42 @@ class MiniGFM {
      */
     parseBlocks(text) {
         // 标题
-        text = text.replace(this.patterns.heading, (match, level, content) => {
+        text = text.replace(/^[^\\]\s*(#{1,6}) (.+)$/gm, (match, level, content) => {
             return `<h${level.length}>${content}</h${level.length}>`;
         });
 
         // 任务列表
-        text = text.replace(this.patterns.taskList, (match, indent, checked, content) => {
+        text = text.replace(/^[ \t]*[-\*\+] \[([ xX]?)\]\s([^-\_\*]+)$/gm, (match, indent, checked, content) => {
             const isChecked = checked.trim().toLowerCase() === 'x';
             return `${indent}<li><input type="checkbox" ${isChecked ? 'checked' : ''} disabled> ${content}</li>`;
         });
 
         // 无序列表
-        text = text.replace(this.patterns.unorderedList, (match, content) => {
+        text = text.replace(/^[ \t]*[-\*\+] ([^-\_\*]+)$/gm, (match, content) => {
             return `<li>${content}</li>`;
         });
 
         // 有序列表
-        text = text.replace(this.patterns.orderedList, (match, indent, content) => {
+        text = text.replace(/^[ \t]*(\d+)\. ([^-\_\*]+)$/gm, (match, indent, content) => {
             return `<li>${indent}. ${content}</li>`;
         });
 
         // 分隔线
-        text = text.replace(this.patterns.hr, () => '<hr>');
+        text = text.replace(/^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm, () => '<hr>');
 
         // 引用块
-        text = text.replace(this.patterns.blockquote, (match, sep, content) => {
+        text = text.replace(/^((?:\&gt\; ?)+)( *.*)$/gm, (match, sep, content) => {
             let num = sep.replaceAll("&gt;", ">").length;
             return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
         });
 
         // 表格
-        text = text.replace(this.patterns.table, (match, headers, align, rows) => {
+        text = text.replace(/^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm, (match, headers, align, rows) => {
             return this.parseTable(headers, align, rows);
         });
 
         // 段落处理
-        const chunks = text.split(this.patterns.paragraphSplit);
+        const chunks = text.split(/\\\n|\n{2,}/g);
         return chunks.map(chunk => {
             if (!chunk.startsWith('<') && !chunk.match(/^<[a-z]+/i)) {
                 return `<p>${chunk}</p>`;
@@ -285,24 +245,24 @@ class MiniGFM {
      */
     parseInlines(text) {
         // 粗体
-        text = text.replace(this.patterns.bold, '<strong>$1</strong>');
+        text = text.replace(/[\*\_]{2}(.+?)[\*\_]{2}/g, '<strong>$1</strong>');
 
-        text = text.replace(this.patterns.italic, (match, g1, g2) =>
+        text = text.replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (match, g1, g2) =>
             `<em>${g1 || g2}</em>`
         );
 
         // 删除线
-        text = text.replace(this.patterns.strike, '<del>$1</del>');
+        text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
 
         // 自动链接
-        text = text.replace(this.patterns.autoLink, '<a href="$1">$1</a>');
+        text = text.replace(/<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g, '<a href="$1">$1</a>');
         text = text.replace(this.patterns.autoEmail, '<a href="mailto:$1">$1</a>');
 
         // 图片
-        text = text.replace(this.patterns.image, '<img src="$2" alt="$1"></img>');
+        text = text.replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1"></img>');
 
         // 链接
-        text = text.replace(this.patterns.link, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title.replaceAll("&quot;", "\"") : ""}>${desc}</a>`);
+        text = text.replace(/\[([^\]]+)\]\(([^\) ]+)[ ]?(\&quot\;[^\)\"]+\&quot\;)?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title.replaceAll("&quot;", "\"") : ""}>${desc}</a>`);
 
         return text;
     }
