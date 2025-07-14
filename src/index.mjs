@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.4
+ * @version 1.0.5
  * @class
  */
 export class MiniGFM {
@@ -80,7 +80,6 @@ export class MiniGFM {
      * @static
      */
     parseBlocks(text) {
-        console.log(text)
         return text
             // 标题
             .replace(/^[^\\]?\s*(#{1,6}) ([^\n]+)$/gm, (match, level, content) => {
@@ -103,9 +102,7 @@ export class MiniGFM {
 
             // 引用块
             .replace(/^[ \t]*((?:\>[ \t]+)+)([^\n]*)$/gm, (match, sep, content) => {
-                console.log(match, sep, content)
                 let num = sep.length / 2;
-                console.log(num);
                 if (content.trim() === '') return '';
                 return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
             })
