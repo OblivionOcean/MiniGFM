@@ -1,6 +1,6 @@
 {
   "name": "@oblivionocean/minigfm",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Minimal JavaScript Markdown renderer with near-GFM compatibility.",
   "keywords": [
     "MarkDown",

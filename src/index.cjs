@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.3
+ * @version 1.0.4
  * @class
  */
 class MiniGFM {
@@ -29,73 +29,47 @@ class MiniGFM {
     * @returns {string} HTML字符串
     */
     parse(markdown) {
-        // 转义特殊字符
-        markdown = this.escape(markdown);
-
-        if (!this.options.unsafe) {
-            markdown = this.escapeHTML(markdown);
-        }
-
-        // 保存原始代码块
-        const codeBlocks = [];
-        const codeInline = [];
-        markdown = markdown.replace(/(?:^|\n)(`{3,4})([A-Za-z0-9]*?)\n([\s\S]*?)\n\1/g, (match, _, lang, code) => {
-            codeBlocks.push({ lang: lang, code: code.trim() });
-            return `<!----CODEBLOCK${codeBlocks.length - 1}---->`;
-        })
-            // 保持内联代码   
-            .replace(/`([^`]+)`/g, (match, code) => {
-                codeInline.push(code);
+        if (typeof markdown != "string") return '';
+        const codeBlocks = [], codeInline = [];
+        markdown = markdown
+            // 转义特殊字符
+            .replace(/\\([\\*_{}[\]()#+\-.!])/g, '$1')
+            // 保存原始代码块
+            .replace(/(?:^|\n)(`{3,4})[ ]*(\w*?)\n([\s\S]*?)\n\1/g, (_, __, lang, code) => {
+                codeBlocks.push({ lang: lang.trim(), code: code.trim() });
+                return `<!----CODEBLOCK${codeBlocks.length - 1}---->`;
+            })
+            // 保持内联代码 
+            .replace(/`([^`]+)`/g, (_, code) => {
+                codeInline.push(this.escapeHTML(code));
                 return `<!----CODEINLINE${codeInline.length - 1}---->`;
             })
-
             // 删除注释
-            .replace(/\%\%[\n ][^\%]+[\n ]\%\%/g, '');
+            .replace(/%%[\n ][^%]+[\n ]%%/g, '');
 
-        // 解析块级元素
-        markdown = this.parseBlocks(markdown);
+        if (!this.options.unsafe) markdown = this.safeHTML(markdown);
 
-        // 解析行内元素
-        markdown = this.parseInlines(markdown);
-
-        // 恢复代码行级元素
-        markdown = markdown.replace(/<!----CODEINLINE(\d+)---->/g, (match, id) => {
-            if (!codeInline[parseInt(id)]) return '';
-            return `<code>${codeInline[parseInt(id)]}</code>`;
-        })
-
+        return this.parseInlines(this.parseBlocks(markdown))// 解析块和内联元素
+            // 恢复内联代码
+            .replace(/<!----CODEINLINE(\d+)---->/g, (_, id) =>
+                codeInline[id] ? `<code>${codeInline[id]}</code>` : ''
+            )
             // 恢复代码块
-            .replace(/<!----CODEBLOCK(\d+)---->/g, (match, id) => {
-                if (!codeBlocks[parseInt(id)]) return '';
-                let codeBlock = codeBlocks[parseInt(id)]
-                codeBlock.lang = codeBlock.lang.trim();
-                if (codeBlock.lang) {
-                    if (this.options.hljs) {
-                        try {
-                            codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
-                        } catch { }
-                    }
-                    return `<pre lang="${codeBlock.lang}"><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
-                } else {
-                    if (this.options.hljs) {
-                        try {
-                            codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
-                        } catch { }
-                    }
-                    return `<pre><code>${codeBlock.code}</code></pre>`
-                }
+            .replace(/<!----CODEBLOCK(\d+)---->/g, (_, id) => {
+                if (!codeBlocks[id]) return '';
+                const { lang, code } = codeBlocks[id];
+                let highlighted = code;
+
+                if (this.options.hljs) try {
+                    highlighted = (lang
+                        ? this.options.hljs.highlight(code, { language: lang })
+                        : this.options.hljs.highlightAuto(code)).value;
+                } catch { }
+
+                return lang
+                    ? `<pre lang="${lang}"><code class="hljs ${lang} lang-${lang}">${highlighted}</code></pre>`
+                    : `<pre><code>${highlighted}</code></pre>`;
             });
-
-        return markdown;
-    }
-
-    /**
-     * 转义特殊字符
-     * @param {string} text - 待处理的文本
-     * @returns {string} 转义后的文本
-     */
-    escape(text) {
-        return text.replace(/\\([\\*_{}[\]()#+\-.!])/g, '$1');
     }
 
     /**
@@ -106,33 +80,32 @@ class MiniGFM {
      * @static
      */
     parseBlocks(text) {
-        // 标题
-        text = text.replace(/^[^\\]\s*(#{1,6}) (.+)$/gm, (match, level, content) => {
-            return `<h${level.length}>${content}</h${level.length}>`;
-        })
+        console.log(text)
+        return text
+            // 标题
+            .replace(/^[^\\]?\s*(#{1,6}) ([^\n]+)$/gm, (match, level, content) => {
+                return `<h${level.length}>${content}</h${level.length}>`;
+            })
 
             // 任务列表
-            .replace(/^[ \t]*[-\*\+] \[([ xX]?)\]\s([^-\_\*]+)$/gm, (match, indent, checked, content) => {
-                const isChecked = checked.trim().toLowerCase() === 'x';
-                return `${indent}<li><input type="checkbox" ${isChecked ? 'checked' : ''} disabled> ${content}</li>`;
+            .replace(/^[ \t]*[-\*\+][ \t]+\[([ ]*[ xX]?)\]\s([^\n]+)$/gm, (match, checked, content) => {
+                return `<li><input type="checkbox" ${checked.trim().toLowerCase() === 'x' ? 'checked' : ''} disabled> ${content}</li>`;
             })
 
             // 无序列表
-            .replace(/^[ \t]*[-\*\+] ([^-\_\*]+)$/gm, (match, content) => {
-                return `<li>${content}</li>`;
-            })
+            .replace(/^[ \t]*[-\*\+] ([^\n]+)$/gm, `<li>$1</li>`)
 
             // 有序列表
-            .replace(/^[ \t]*(\d+)\. ([^-\_\*]+)$/gm, (match, indent, content) => {
-                return `<li>${indent}. ${content}</li>`;
-            })
+            .replace(/^[ \t]*(\d+\.) ([^\n]+)$/gm, `<li>$1 $2</li>`)
 
             // 分隔线
-            .replace(/^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm, () => '<hr>')
+            .replace(/^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm, () => '<hr/>')
 
             // 引用块
-            .replace(/^((?:\&gt\; ?)+)( *.*)$/gm, (match, sep, content) => {
-                let num = sep.replaceAll("&gt;", ">").length;
+            .replace(/^[ \t]*((?:\>[ \t]+)+)([^\n]*)$/gm, (match, sep, content) => {
+                console.log(match, sep, content)
+                let num = sep.length / 2;
+                console.log(num);
                 if (content.trim() === '') return '';
                 return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
             })
@@ -140,16 +113,12 @@ class MiniGFM {
             // 表格
             .replace(/^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm, (match, headers, align, rows) => {
                 return this.parseTable(headers, align, rows);
-            });
+            })
 
-        // 段落处理
-        const chunks = text.split(/\\\n|\n{2,}/g);
-        return chunks.map(chunk => {
-            if (!chunk.startsWith('<') && !chunk.match(/^<[a-z]+/i)) {
-                return `<p>${chunk}</p>`;
-            }
-            return chunk;
-        }).join('<br />');
+            // 段落处理
+            .split(/\n{2,}|\\\n/g)
+            .map(s => /^<(\w+)/.test(s) ? s : `<p>${s}</p>`)
+            .join('<br />');
     }
 
     /**
@@ -162,54 +131,40 @@ class MiniGFM {
      */
     parseTable(headers, alignLine, rows) {
         // 解析表头
-        const headerColumns = headers.split('|').map(h => h.trim()).filter(h => h);
+        const headerCols = headers.split('|').map(h => h.trim()).filter(Boolean);
 
-        // 解析对齐方式（改进对齐解析）
-        const alignments = this.parseTableAlignment(alignLine);
+        // 解析对齐方式
+        const aligns = this.parseTableAlignment(alignLine);
 
-        // 解析行数据
-        const rowData = [];
-        const rowLines = rows.trim().split('\n');
-
-        for (const line of rowLines) {
-            if (/^|(?:[^\|]+\|+)+$/.test(line)) {
-                const parts = line.split('|').map(c => c.trim());
-                // 确保列数与表头一致
-                const columns = [];
-                for (let i = 0; i < headerColumns.length; i++) {
-                    columns.push(parts[i] || ''); // 填充空单元格
-                }
-                rowData.push(columns);
-            }
-        }
+        // 解析行数据（兼容列数不一致的情况）
+        const bodyRows = rows.trim().split('\n').reduce((arr, line) => {
+            if (!line.includes('|')) return arr;
+            const cols = line.split('|').slice(1, -1).map(c => c.trim()); // 移除首尾空列
+            arr.push(headerCols.map((_, i) => cols[i] || ''));  // 按表头列数填充
+            return arr;
+        }, []);
 
         // 构建表格HTML
-        let html = '<table>';
+        const table = ['<table>', '<thead><tr>'];
 
-        // 表头
-        html += '<thead><tr>';
-        headerColumns.forEach((header, i) => {
-            const align = alignments[i] ? ` align="${alignments[i]}"` : '';
-            html += `<th${align}>${header}</th>`;
+        // 表头处理
+        headerCols.forEach((h, i) => {
+            table.push(`<th${aligns[i] ? ` align="${aligns[i]}"` : ''}>${h}</th>`);
         });
-        html += '</tr></thead>';
+        table.push('</tr></thead>');
 
-        // 表体
-        if (rowData.length > 0) {
-            html += '<tbody>';
-            rowData.forEach(row => {
-                html += '<tr>';
-                row.forEach((cell, j) => {
-                    const align = alignments[j] ? ` align="${alignments[j]}"` : '';
-                    html += `<td${align}>${cell}</td>`;
-                });
-                html += '</tr>';
+        // 表体处理
+        if (bodyRows.length) {
+            table.push('<tbody>');
+            bodyRows.forEach(row => {
+                table.push('<tr>',
+                    ...row.map((c, j) => `<td${aligns[j] ? ` align="${aligns[j]}"` : ''}>${c}</td>`),
+                    '</tr>');
             });
-            html += '</tbody>';
+            table.push('</tbody>');
         }
-        html += '</table>';
 
-        return html;
+        return [...table, '</table>'].join('');
     }
 
     /**
@@ -220,25 +175,19 @@ class MiniGFM {
      * @static
      */
     parseTableAlignment(alignLine) {
-        const alignments = [];
-        const parts = alignLine.split('|').map(p => p.trim());
-
-        for (const part of parts) {
-            if (!part) continue; // 跳过空部分
-
-            // 处理不同对齐格式
-            if (part.startsWith(':') && part.endsWith(':')) {
-                alignments.push('center');
-            } else if (part.startsWith(':')) {
-                alignments.push('left');
-            } else if (part.endsWith(':')) {
-                alignments.push('right');
-            } else {
-                alignments.push(null); // 默认对齐
-            }
-        }
-
-        return alignments;
+        // 解析每列的对齐方式
+        return alignLine.split('|')
+            .map(part => part.trim())
+            .filter(Boolean)
+            .map(part => {
+                // 根据冒号位置确定对齐方式
+                const left = part.startsWith(':');
+                const right = part.endsWith(':');
+                return left && right ? 'center'
+                    : left ? 'left'
+                        : right ? 'right'
+                            : null; // 默认无特殊对齐
+            });
     }
 
     /**
@@ -250,7 +199,7 @@ class MiniGFM {
      */
     parseInlines(text) {
         // 粗体
-        text = text.replace(/[\*\_]{2}(.+?)[\*\_]{2}/g, '<strong>$1</strong>')
+        return text.replace(/[\*\_]{2}(.+?)[\*\_]{2}/g, '<strong>$1</strong>')
 
             .replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (match, g1, g2) =>
                 `<em>${g1 || g2}</em>`
@@ -260,16 +209,14 @@ class MiniGFM {
             .replace(/~~(.+?)~~/g, '<del>$1</del>')
 
             // 自动链接
-            .replace(/(?:<|\&lt\;)((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)(?:>|\&gt\;)/g, '<a href="$1">$1</a>')
-            .replace(/(?:<|\&lt\;)([^\s@]+@[^\s@]+\.[^\s@]+)(?:>|\&gt\;)/g, '<a href="mailto:$1">$1</a>')
+            .replace(/<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g, '<a href="$1">$1</a>')
+            .replace(/<([^\s@]+@[^\s@]+\.[^\s@]+)>/g, '<a href="mailto:$1">$1</a>')
 
             // 图片
             .replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1"></img>')
 
             // 链接
-            .replace(/\[([^\]]+)\]\(([^\) ]+)[ ]?(\&quot\;[^\)\"]+\&quot\;)?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title.replaceAll("&quot;", "\"") : ""}>${desc}</a>`);
-
-        return text;
+            .replace(/\[([^\]]+)\]\(([^\) ]+)[ ]?(\"[^\)\"]+\")?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
     }
 
     /**
@@ -278,7 +225,18 @@ class MiniGFM {
      * @returns {string}
      */
     escapeHTML(text) {
-        return text.replace(/[&<>"']/g, m => this.escapeMap[m]);
+        return text.replace(/[&<>"']/g, m => this.escapeMap[m])
+    }
+
+    /**
+     * 安全化 HTML 字符串
+     * @param {string} text
+     * @returns {string}
+     */
+    safeHTML(text) {
+        return text
+            .replace(/<(\/?)\s*(script|iframe|object|embed|frame|link|meta|style|svg|math)[^>]*>/gi, m => this.escapeHTML(m))
+            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:)[^"'\s>]*/gi, '');
     }
 }
 
