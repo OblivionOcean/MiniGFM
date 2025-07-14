@@ -73,7 +73,7 @@ class MiniGFM {
                 if (this.options.hljs) {
                     codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
                 }
-                return `<pre><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
+                return `<pre lang="${codeBlock.lang}"><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
             } else {
                 if (this.options.hljs) {
                     codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
