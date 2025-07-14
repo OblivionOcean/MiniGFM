@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.2
+ * @version 1.0.3
  * @class
  */
 class MiniGFM {
@@ -64,23 +64,27 @@ class MiniGFM {
             return `<code>${codeInline[parseInt(id)]}</code>`;
         })
 
-        // 恢复代码块
-        .replace(/<!----CODEBLOCK(\d+)---->/g, (match, id) => {
-            if (!codeBlocks[parseInt(id)]) return '';
-            let codeBlock = codeBlocks[parseInt(id)]
-            codeBlock.lang = codeBlock.lang.trim();
-            if (codeBlock.lang) {
-                if (this.options.hljs) {
-                    codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
+            // 恢复代码块
+            .replace(/<!----CODEBLOCK(\d+)---->/g, (match, id) => {
+                if (!codeBlocks[parseInt(id)]) return '';
+                let codeBlock = codeBlocks[parseInt(id)]
+                codeBlock.lang = codeBlock.lang.trim();
+                if (codeBlock.lang) {
+                    if (this.options.hljs) {
+                        try {
+                            codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
+                        } catch { }
+                    }
+                    return `<pre lang="${codeBlock.lang}"><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
+                } else {
+                    if (this.options.hljs) {
+                        try {
+                            codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
+                        } catch { }
+                    }
+                    return `<pre><code>${codeBlock.code}</code></pre>`
                 }
-                return `<pre lang="${codeBlock.lang}"><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
-            } else {
-                if (this.options.hljs) {
-                    codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
-                }
-                return `<pre><code>${codeBlock.code}</code></pre>`
-            }
-        });
+            });
 
         return markdown;
     }

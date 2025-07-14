@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.2
+ * @version 1.0.3
  * @class
  */
 export class MiniGFM {
@@ -71,12 +71,16 @@ export class MiniGFM {
                 codeBlock.lang = codeBlock.lang.trim();
                 if (codeBlock.lang) {
                     if (this.options.hljs) {
-                        codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
+                        try {
+                            codeBlock.code = this.options.hljs.highlight(codeBlock.code, { language: codeBlock.lang }).value;
+                        } catch { }
                     }
                     return `<pre><code class="hljs ${codeBlock.lang} lang-${codeBlock.lang}">${codeBlock.code}</code></pre>`
                 } else {
                     if (this.options.hljs) {
-                        codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
+                        try {
+                            codeBlock.code = this.options.hljs.highlightAuto(codeBlock.code).value;
+                        } catch { }
                     }
                     return `<pre><code>${codeBlock.code}</code></pre>`
                 }
