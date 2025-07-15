@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.6
+ * @version 1.0.7
  * @class
  */
 class MiniGFM {
@@ -18,7 +18,8 @@ class MiniGFM {
     parse(markdown) {
         if (typeof markdown != "string") return '';
         const codeBlocks = [], codeInline = [];
-        markdown = markdown
+        markdown = this.parseInlines(this.parseBlocks(// 解析块和内联元素
+            markdown
             // 保存原始代码块
             .replace(/(?:^|\n)[^\\]?(`{3,4})[ ]*(\w*?)\n([\s\S]*?)\n\1/g, (_, __, lang, code) => {
                 codeBlocks.push({ lang: lang.trim(), code: code.trim() });
@@ -32,9 +33,7 @@ class MiniGFM {
             // 转义特殊字符
             .replace(/\\([\\*_{}[\]()#+\-.!`])/g, (_, m) => `&#${m.charCodeAt(0)}`)
             // 删除注释
-            .replace(/%%[\n ][^%]+[\n ]%%/g, '');
-
-        markdown = this.parseInlines(this.parseBlocks(markdown))// 解析块和内联元素
+            .replace(/%%[\n ][^%]+[\n ]%%/g, '')))
             // 恢复内联代码
             .replace(/<!----CODEINLINE(\d+)---->/g, (_, id) =>
                 codeInline[id] ? `<code>${codeInline[id]}</code>` : ''
@@ -218,7 +217,10 @@ class MiniGFM {
     safeHTML(text) {
         return text
             .replace(/<(\/?)\s*(script|iframe|object|embed|frame|link|meta|style|svg|math)[^>]*>/gi, m => this.escapeHTML(m))
-            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:|expression:)[^"'\s>]*/gi, '');
+            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:|expression:)[^"'\s>]*/gi, '').replace(
+                /\<[^\>]+\>/g,
+                tag => tag.replace(/\s+on\w+\s*=\s*["']?[^"'\\]*["']?/gi, '')
+            );
     }
 }
 

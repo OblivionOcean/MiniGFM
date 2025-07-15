@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.6
+ * @version 1.0.7
  * @class
  */
 export class MiniGFM {
@@ -218,6 +218,9 @@ export class MiniGFM {
     safeHTML(text) {
         return text
             .replace(/<(\/?)\s*(script|iframe|object|embed|frame|link|meta|style|svg|math)[^>]*>/gi, m => this.escapeHTML(m))
-            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:|expression:)[^"'\s>]*/gi, '');
+            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:|expression:)[^"'\s>]*/gi, '').replace(
+                /\<[^\>]+\>/g,
+                tag => tag.replace(/\s+on\w+\s*=\s*["']?[^"'\\]*["']?/gi, '')
+            );
     }
 }
