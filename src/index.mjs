@@ -1,23 +1,10 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.5
+ * @version 1.0.6
  * @class
  */
 export class MiniGFM {
-    /**
-     * @property {Map} escapeMap
-     * @description html 转义字符
-     * @private
-     * @static
-     */
-    escapeMap = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-    };
 
     constructor(options) {
         this.options = options || {};
@@ -32,24 +19,22 @@ export class MiniGFM {
         if (typeof markdown != "string") return '';
         const codeBlocks = [], codeInline = [];
         markdown = markdown
-            // 转义特殊字符
-            .replace(/\\([\\*_{}[\]()#+\-.!])/g, '$1')
             // 保存原始代码块
-            .replace(/(?:^|\n)(`{3,4})[ ]*(\w*?)\n([\s\S]*?)\n\1/g, (_, __, lang, code) => {
+            .replace(/(?:^|\n)[^\\]?(`{3,4})[ ]*(\w*?)\n([\s\S]*?)\n\1/g, (_, __, lang, code) => {
                 codeBlocks.push({ lang: lang.trim(), code: code.trim() });
                 return `<!----CODEBLOCK${codeBlocks.length - 1}---->`;
             })
             // 保持内联代码 
-            .replace(/`([^`]+)`/g, (_, code) => {
+            .replace(/([^\\])`([^`]+)`/g, (_, after, code) => {
                 codeInline.push(this.escapeHTML(code));
-                return `<!----CODEINLINE${codeInline.length - 1}---->`;
+                return `${after}<!----CODEINLINE${codeInline.length - 1}---->`;
             })
+            // 转义特殊字符
+            .replace(/\\([\\*_{}[\]()#+\-.!`])/g, (_, m) => `&#${m.charCodeAt(0)}`)
             // 删除注释
             .replace(/%%[\n ][^%]+[\n ]%%/g, '');
 
-        if (!this.options.unsafe) markdown = this.safeHTML(markdown);
-
-        return this.parseInlines(this.parseBlocks(markdown))// 解析块和内联元素
+        markdown = this.parseInlines(this.parseBlocks(markdown))// 解析块和内联元素
             // 恢复内联代码
             .replace(/<!----CODEINLINE(\d+)---->/g, (_, id) =>
                 codeInline[id] ? `<code>${codeInline[id]}</code>` : ''
@@ -70,6 +55,7 @@ export class MiniGFM {
                     ? `<pre lang="${lang}"><code class="hljs ${lang} lang-${lang}">${highlighted}</code></pre>`
                     : `<pre><code>${highlighted}</code></pre>`;
             });
+        return (!this.options.unsafe) ? this.safeHTML(markdown) : markdown;
     }
 
     /**
@@ -101,7 +87,7 @@ export class MiniGFM {
             .replace(/^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm, () => '<hr/>')
 
             // 引用块
-            .replace(/^[ \t]*((?:\>[ \t]+)+)([^\n]*)$/gm, (match, sep, content) => {
+            .replace(/^[ \t]*((?:\>[ \t]*)+)([^\n]*)$/gm, (match, sep, content) => {
                 let num = sep.length / 2;
                 if (content.trim() === '') return '';
                 return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
@@ -197,7 +183,6 @@ export class MiniGFM {
     parseInlines(text) {
         // 粗体
         return text.replace(/[\*\_]{2}(.+?)[\*\_]{2}/g, '<strong>$1</strong>')
-
             .replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (match, g1, g2) =>
                 `<em>${g1 || g2}</em>`
             )
@@ -206,11 +191,11 @@ export class MiniGFM {
             .replace(/~~(.+?)~~/g, '<del>$1</del>')
 
             // 自动链接
-            .replace(/<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)>/g, '<a href="$1">$1</a>')
-            .replace(/<([^\s@]+@[^\s@]+\.[^\s@]+)>/g, '<a href="mailto:$1">$1</a>')
+            .replace(/\<([^\s@\>]+@[^\s@\>]+\.[^\s@\>]+)\>/g, '<a href="mailto:$1">$1</a>')
+            .replace(/\<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^\>\s]+)\>/g, '<a href="$1">$1</a>')
 
             // 图片
-            .replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1"></img>')
+            .replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1">')
 
             // 链接
             .replace(/\[([^\]]+)\]\(([^\) ]+)[ ]?(\"[^\)\"]+\")?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
@@ -222,7 +207,7 @@ export class MiniGFM {
      * @returns {string}
      */
     escapeHTML(text) {
-        return text.replace(/[&<>"']/g, m => this.escapeMap[m])
+        return text.replace(/[&<>"']/g, m => `&#${m.charCodeAt(0)}`)
     }
 
     /**
@@ -233,6 +218,6 @@ export class MiniGFM {
     safeHTML(text) {
         return text
             .replace(/<(\/?)\s*(script|iframe|object|embed|frame|link|meta|style|svg|math)[^>]*>/gi, m => this.escapeHTML(m))
-            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:)[^"'\s>]*/gi, '');
+            .replace(/\s(?!data-)[\w-]+=\s*["'\s]*(javascript:|data:|expression:)[^"'\s>]*/gi, '');
     }
 }
