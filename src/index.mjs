@@ -73,12 +73,12 @@ export class MiniGFM {
             })
 
             // 任务列表
-            .replace(/^[ \t]*[-\*\+][ \t]+\[([ ]*[ xX]?)\]\s([^\n]+)$/gm, (match, checked, content) => {
+            .replace(/^[ \t]*[-*+][ \t]+\[([ ]*[ xX]?)\]\s([^\n]+)$/gm, (match, checked, content) => {
                 return `<li><input type="checkbox" ${checked.trim().toLowerCase() === 'x' ? 'checked' : ''} disabled> ${content}</li>`;
             })
 
             // 无序列表
-            .replace(/^[ \t]*[-\*\+] ([^\n]+)$/gm, `<li>$1</li>`)
+            .replace(/^[ \t]*[-*+] ([^\n]+)$/gm, `<li>$1</li>`)
 
             // 有序列表
             .replace(/^[ \t]*(\d+\.) ([^\n]+)$/gm, `<li>$1 $2</li>`)
@@ -182,7 +182,7 @@ export class MiniGFM {
      */
     parseInlines(text) {
         // 粗体
-        return text.replace(/[\*\_]{2}(.+?)[\*\_]{2}/g, '<strong>$1</strong>')
+        return text.replace(/[*_]{2}(.+?)[*_]{2}/g, '<strong>$1</strong>')
             .replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (match, g1, g2) =>
                 `<em>${g1 || g2}</em>`
             )
@@ -191,14 +191,14 @@ export class MiniGFM {
             .replace(/~~(.+?)~~/g, '<del>$1</del>')
 
             // 自动链接
-            .replace(/\<([^\s@\>]+@[^\s@\>]+\.[^\s@\>]+)\>/g, '<a href="mailto:$1">$1</a>')
-            .replace(/\<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^\>\s]+)\>/g, '<a href="$1">$1</a>')
+            .replace(/\<([^\s@>]+@[^\s@>]+\.[^\s@>]+)\>/g, '<a href="mailto:$1">$1</a>')
+            .replace(/\<((?:https?:\/\/|ftp:\/\/|mailto:|tel:)[^>\s]+)\>/g, '<a href="$1">$1</a>')
 
             // 图片
-            .replace(/\!\[([^\]]*)\]\(([^\)]+)\)/g, '<img src="$2" alt="$1">')
+            .replace(/\!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
 
             // 链接
-            .replace(/\[([^\]]+)\]\(([^\) ]+)[ ]?(\"[^\)\"]+\")?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
+            .replace(/\[([^\]]+)\]\(([^) ]+)[ ]?(\"[^)"\"]+\")?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
     }
 
     /**
