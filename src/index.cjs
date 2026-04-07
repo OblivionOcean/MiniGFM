@@ -1,7 +1,7 @@
 /**
  * MiniGFM - 一个简单的Markdown解析器，基本支持GFM语法。
  * @author OblivionOcean
- * @version 1.0.7
+ * @version 1.0.8
  * @class
  */
 class MiniGFM {
@@ -68,14 +68,10 @@ class MiniGFM {
     parseBlocks(text) {
         return text
             // 标题
-            .replace(/^[^\\]?\s*(#{1,6}) ([^\n]+)$/gm, (match, level, content) => {
-                return `<h${level.length}>${content}</h${level.length}>`;
-            })
+            .replace(/^[^\\]?\s*(#{1,6}) ([^\n]+)$/gm, (_, level, content) => `<h${level.length}>${content}</h${level.length}>`)
 
             // 任务列表
-            .replace(/^[ \t]*[-*+][ \t]+\[([ ]*[ xX]?)\]\s([^\n]+)$/gm, (match, checked, content) => {
-                return `<li><input type="checkbox" ${checked.trim().toLowerCase() === 'x' ? 'checked' : ''} disabled> ${content}</li>`;
-            })
+            .replace(/^[ \t]*[-*+][ \t]+\[([ ]*[ xX]?)\]\s([^\n]+)$/gm, (_, checked, content) => `<li><input type="checkbox" ${checked.trim().toLowerCase() === 'x' ? 'checked' : ''} disabled> ${content}</li>`)
 
             // 无序列表
             .replace(/^[ \t]*[-*+] ([^\n]+)$/gm, `<li>$1</li>`)
@@ -87,32 +83,31 @@ class MiniGFM {
             .replace(/^ {0,3}(([*_-])( *\2 *){2,})(?:\s*$|$)/gm, () => '<hr/>')
 
             // 引用块
-            .replace(/^[ \t]*((?:\>[ \t]*)+)([^\n]*)$/gm, (match, sep, content) => {
-                let num = sep.length / 2;
+            .replace(/^[ \t]*((?:\>[ \t]*)+)([^\n]*)$/gm, (_, sep, content) => {
                 if (content.trim() === '') return '';
+                let num = sep.length / 2;
                 return "<blockquote>".repeat(num) + content + "</blockquote>".repeat(num);
             })
 
             // 表格
-            .replace(/^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm, (match, headers, align, rows) => {
-                return this.parseTable(headers, align, rows);
-            })
+            .replace(/^([^\n]*\|[^\n]*)\n([-:| ]+\|)+[-\| ]*\n((?:[^\n]*\|[^\n]*(?:\n|$))*)/gm, this.parseTable.bind(this))
 
             // 段落处理
             .split(/\n{2,}|\\\n/g)
             .map(s => /^<(\w+)/.test(s) ? s : `<p>${s}</p>`)
-            .join('<br />');
+            .join(this.options.noMoreBr ? '' : '<br />');
     }
 
     /**
      * 解析表格
+     * @param {*} _ 忽略参数，保持接口一致
      * @param {Array} headers 表头
      * @param {String} alignLine 对齐方式
      * @param {Array} rows 表格行
      * @return {String}
      * @private
      */
-    parseTable(headers, alignLine, rows) {
+    parseTable(_, headers, alignLine, rows) {
         // 解析表头
         const headerCols = headers.split('|').map(h => h.trim()).filter(Boolean);
 
@@ -126,17 +121,7 @@ class MiniGFM {
             arr.push(headerCols.map((_, i) => cols[i] || ''));  // 按表头列数填充
             return arr;
         }, []);
-
-        // 构建表格HTML
-        const table = ['<table>', '<thead><tr>'];
-
-        // 表头处理
-        headerCols.forEach((h, i) => {
-            table.push(`<th${aligns[i] ? ` align="${aligns[i]}"` : ''}>${h}</th>`);
-        });
-        table.push('</tr></thead>');
-
-        // 表体处理
+        const table = ['<table>', '<thead><tr>', ...headerCols.map((h, i) => `<th${aligns[i] ? ` align="${aligns[i]}"` : ''}>${h}</th>`), '</tr></thead>'];
         if (bodyRows.length) {
             table.push('<tbody>');
             bodyRows.forEach(row => {
@@ -158,19 +143,12 @@ class MiniGFM {
      * @static
      */
     parseTableAlignment(alignLine) {
-        // 解析每列的对齐方式
-        return alignLine.split('|')
-            .map(part => part.trim())
-            .filter(Boolean)
-            .map(part => {
-                // 根据冒号位置确定对齐方式
-                const left = part.startsWith(':');
-                const right = part.endsWith(':');
-                return left && right ? 'center'
-                    : left ? 'left'
-                        : right ? 'right'
-                            : null; // 默认无特殊对齐
-            });
+        return alignLine.split('|').map(part => {
+            part = part.trim();
+            if (!part) return null;
+            const left = part.startsWith(':'), right = part.endsWith(':');
+            return left && right ? 'center' : left ? 'left' : right ? 'right' : null;
+        }).filter(Boolean);
     }
 
     /**
@@ -182,10 +160,11 @@ class MiniGFM {
      */
     parseInlines(text) {
         // 粗体
-        return text.replace(/[*_]{2}(.+?)[*_]{2}/g, '<strong>$1</strong>')
-            .replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (match, g1, g2) =>
-                `<em>${g1 || g2}</em>`
-            )
+        return text
+            .replace(/(.+)^(.+)/g, '$1<sup>$2</sup>')
+            .replace(/(.+)_(.+)/g, '$1<sub>$2</sub>')
+            .replace(/[*_]{2}(.+?)[*_]{2}/g, '<strong>$1</strong>')
+            .replace(/(?<!\*)_(.+?)_(?!\*)|(?<!\*)\*(.+?)\*(?!\*)/, (_, g1, g2) => `<em>${g1 || g2}</em>`)
 
             // 删除线
             .replace(/~~(.+?)~~/g, '<del>$1</del>')
@@ -198,7 +177,7 @@ class MiniGFM {
             .replace(/\!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
 
             // 链接
-            .replace(/\[([^\]]+)\]\(([^) ]+)[ ]?(\"[^)"\"]+\")?\)/g, (match, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
+            .replace(/\[([^\]]+)\]\(([^) ]+)[ ]?(\"[^)"\"]+\")?\)/g, (_, desc, url, title) => `<a href="${url}"${(title) ? " title=" + title : ""}>${desc}</a>`);
     }
 
     /**
